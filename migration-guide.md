@@ -135,17 +135,127 @@ JettyはまだServlet 6.0をサポートしていません。Spring Boot 3.0でJ
 Apache HttpClientのサポートは@Spring Framework 6.0で削除](https://github.com/spring-projects/spring-framework/issues/28925)され、すぐに`org.apache.httpcomponents.client5:httpclient5`（注意：この依存関係は異なるgroupIdを持っています）に置き換えられました。HTTPクライアントの動作に問題がある場合、`RestTemplate`がJDKクライアントにフォールバックしている可能性があります。 `org.apache.httpcomponents:httpclient` は他の依存関係によって推移的にもたらされることがあるので、アプリケーションは宣言せずにこの依存関係に依存しているかもしれません。
 
 ## Actuator Changes
+Spring Bootのactuatorモジュールを使用している方は、以下のアップデートに注意してください。
+
 ### JMX Endpoint Exposure
+デフォルトでは、ヘルスエンドポイントのみがJMX上で公開され、デフォルトのWebエンドポイント公開と一致するようになりました。これは、management.endpoints.jmx.exposure.includeおよびmanagement.endpoints.jmx.exposure.excludeプロパティを構成することで変更できます。
+
 ### 'httptrace' Endpoint Renamed to 'httpexchanges'
+httptraceエンドポイントおよび関連するインフラストラクチャは、最近のHTTPリクエスト-レスポンス交換に関する情報を記録し、その情報へのアクセスを提供します。[Micrometer Tracing](https://micrometer.io/docs/tracing)のサポートが導入された後、httptraceという名前は混乱を引き起こす可能性があります。この可能な混乱を減らすために、エンドポイントはhttpexchangesに名前が変更されました。エンドポイントのレスポンスの内容も、この名称変更によって影響を受けています。詳細については、[Actuator APIドキュメント](https://docs.spring.io/spring-boot/docs/3.0.x/actuator-api/htmlsingle/#httpexchanges)を参照してください。
+
 ### Actuator JSON
+Spring Bootで出荷されたアクチュエータエンドポイントからの応答は、結果が一貫していることを保証するために、分離されたObjectMapperインスタンスを使用します。もし、以前の動作に戻してアプリケーションObjectMapperを使用したい場合は、management.endpoints.jackson.isolated-object-mapperをfalseに設定することができます。
+
+独自のエンドポイントを開発した場合、レスポンスが OperationResponseBody インターフェースを実装していることを確認したい場合があります。これにより、レスポンスをJSONとしてシリアライズする際に、孤立したObjectMapperが考慮されるようになります。
+
 ### Actuator Endpoints Sanitization
-### Auto-configuration of Micrometer’s JvmInfoMetrics
-### Actuator Metrics Export Properties
-### Mongo Health Check
+envと/configpropsのエンドポイントには機密性の高い値が含まれることがあるため、デフォルトですべての値が常にマスクされます。以前は、機密性の高いキーにのみ適用されていました。
+
+その代わりに、このリリースでは、より安全なデフォルトを選択しました。キーベースのアプローチは削除され、ヘルスエンドポイントの詳細と同様に、ロールベースのアプローチが採用されています。サニタイズされていない値を表示するかどうかは、プロパティ management.endpoint.env.show-values または management.endpoint.configprops.show-values を使用して設定することができ、以下の値を持つことができます：
+- NEVER - すべての値がサニタイズされます（デフォルト）。
+- ALWAYS - すべての値が出力されます（サニタイズ機能が適用されます）。
+- WHEN_AUTHORIZED - ユーザーが許可された場合のみ、値が出力されます（サニタイズ機能が適用されます）。
+
+JMXの場合、ユーザーは常に認可されているとみなされます。HTTPでは、認証され、指定されたロールを持つ場合、ユーザーは認可されたとみなされます。
+
+QuartzEndpointのサニタイズも、同様にプロパティ management.endpoint.quartz.show-values で設定可能です。
 
 ## Micrometer and Metrics Changes
+Spring Boot 3.0では、Micrometer 1.10をベースに構築されています。もしあなたのアプリケーションがメトリックスの収集とエクスポートを行うのであれば、以下の変更に注意する必要があります。
+
 ### Deprecation of the Spring Boot 2.x instrumentation
+Observationサポートとの統合の結果、以前のインスツルメンテーションは非推奨となりました。クラス全体のバグを解決できず、重複したインストルメンテーションのリスクが高すぎるため、実際のインストルメンテーションを実行するフィルタ、インターセプターは完全に削除されました。例えば、WebMvcMetricsFilterは完全に削除され、Spring FrameworkのServerHttpObservationFilterで実質的に置き換えられています。対応する *TagProvider *TagContributor と *Tags クラスは、非推奨となりました。これらは、オブザベーションインストルメンテーションでデフォルトではもう使われません。開発者が既存のインフラを新しいものに移行できるように、非推奨フェーズの間、これらを残しています。
+
 ### Tag providers and contributors migration
+あなたのアプリケーションがメトリックスをカスタマイズしている場合、あなたのコードベースでは新しい非推奨が表示されるかもしれません。新しいモデルでは、タグプロバイダとコントリビュータの両方が、観測規約に置き換えられています。Spring Boot 2.xのSpring MVC "http.server.requests" metrics instrumentation supportを例にとって説明しましょう。
+
+TagContributorで追加のTagを提供したり、TagProviderを部分的にオーバーライドするだけなら、おそらくDefaultServerRequestObservationConventionを要件に合わせて拡張すべきです：
+```java
+public class ExtendedServerRequestObservationConvention extends DefaultServerRequestObservationConvention {
+
+  @Override
+  public KeyValues getLowCardinalityKeyValues(ServerRequestObservationContext context) {
+    // here, we just want to have an additional KeyValue to the observation, keeping the default values
+    return super.getLowCardinalityKeyValues(context).and(custom(context));
+  }
+
+  protected KeyValue custom(ServerRequestObservationContext context) {
+    return KeyValue.of("custom.method", context.getCarrier().getMethod());
+  }
+
+}
+```
+メトリクス・タグを大幅に変更する場合、おそらく WebMvcTagsProvider をカスタム実装に置き換えて、Bean として寄贈することになるでしょう。この場合、気になる観測のための規約を実装しておくとよいでしょう。ここでは ServerRequestObservationConvention を実装します。これは ServerRequestObservationContext を使用して、現在のリクエストに関する情報を抽出します。あとは、自分の要求を考慮したメソッドを実装すればよい：
+```java
+public class CustomServerRequestObservationConvention implements ServerRequestObservationConvention {
+
+  @Override
+  public String getName() {
+    // will be used for the metric name
+    return "http.server.requests";
+  }
+
+  @Override
+  public String getContextualName(ServerRequestObservationContext context) {
+    // will be used for the trace name
+    return "http " + context.getCarrier().getMethod().toLowerCase();
+  }
+
+  @Override
+  public KeyValues getLowCardinalityKeyValues(ServerRequestObservationContext context) {
+    return KeyValues.of(method(context), status(context), exception(context));
+  }
+
+  @Override
+  public KeyValues getHighCardinalityKeyValues(ServerRequestObservationContext context) {
+    return KeyValues.of(httpUrl(context));
+  }
+
+  protected KeyValue method(ServerRequestObservationContext context) {
+    // You should reuse as much as possible the corresponding ObservationDocumentation for key names
+    return KeyValue.of(ServerHttpObservationDocumentation.LowCardinalityKeyNames.METHOD, context.getCarrier().getMethod());
+  }
+
+  //...
+}
+```
+どちらの場合も、それらをBeanとしてアプリケーションコンテキストに寄与させれば、自動構成によってピックアップされ、事実上デフォルトのものに取って代わられます。
+```java
+@Configuration
+public class CustomMvcObservationConfiguration {
+
+  @Bean
+  public ExtendedServerRequestObservationConvention extendedServerRequestObservationConvention() {
+    return new ExtendedServerRequestObservationConvention();
+  }
+
+}
+```
+また、カスタムObservationFilterを使用して、オブザベーションのキーバリューを追加または削除することで、同様のゴールを達成することができます。フィルターはデフォルトの規約を置き換えるものではなく、後処理コンポーネントとして使用されます。
+```java
+public class ServerRequestObservationFilter implements ObservationFilter {
+
+  @Override
+  public Observation.Context map(Observation.Context context) {
+    if (context instanceof ServerRequestObservationContext serverContext) {
+      context.addLowCardinalityKeyValue(KeyValue.of("project", "spring"));
+      String customAttribute = (String) serverContext.getCarrier().getAttribute("customAttribute");
+      context.addLowCardinalityKeyValue(KeyValue.of("custom.attribute", customAttribute));
+    }
+    return context;
+  }
+}
+```
+### Auto-configuration of Micrometer’s JvmInfoMetrics
+MicrometerのJvmInfoMetricsが自動構成されるようになりました。手動で設定されたJvmInfoMetricsのBean定義は、削除することができます。
+
+### Actuator Metrics Export Properties
+[アクチュエータ・メトリクス・エクスポート](https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#actuator.metrics)を制御するプロパティを移動しました。古いスキーマは management.metrics.export.<product> で、新しいスキーマは management.<product>.metrics.export です（例：prometheus のプロパティは management.metrics.export.prometheus から management.prometheus.metrics.export に移動しました）。spring-boot-properties-migratorを使用している場合、起動時に通知されます。
+
+詳しくは[issue#30381](https://github.com/spring-projects/spring-boot/issues/30381)をご覧ください。
+
+### Mongo Health Check
+MongoDB用のHealthIndicatorがMongoDBのStable APIをサポートするようになりました。buildInfo クエリは isMaster に置き換えられ、レスポンスには version の代わりに maxWireVersion が含まれるようになりました。[MongoDB のドキュメント](https://www.mongodb.com/docs/v4.2/reference/command/isMaster/)にあるように、クライアントは MongoDB との互換性を交渉するために maxWireVersion を使用することができます。maxWireVersion は整数値であることに注意しましょう。
 
 ## Data Access Changes
 ### Changes to Data properties
