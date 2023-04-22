@@ -258,38 +258,156 @@ MicrometerのJvmInfoMetricsが自動構成されるようになりました。�
 MongoDB用のHealthIndicatorがMongoDBのStable APIをサポートするようになりました。buildInfo クエリは isMaster に置き換えられ、レスポンスには version の代わりに maxWireVersion が含まれるようになりました。[MongoDB のドキュメント](https://www.mongodb.com/docs/v4.2/reference/command/isMaster/)にあるように、クライアントは MongoDB との互換性を交渉するために maxWireVersion を使用することができます。maxWireVersion は整数値であることに注意しましょう。
 
 ## Data Access Changes
+アプリケーションがデータを扱う場合、以下の変更点を確認する必要があります。
+
 ### Changes to Data properties
+spring.dataプレフィックスはSpring Data用に予約されており、プレフィックスの下にあるプロパティはクラスパス上でSpring Dataが必要であることを意味する。
+
 ### Cassandra Properties
+Cassandraの設定プロパティは、spring.data.cassandra.からspring.cassandra.に移動しました。
+
 ### Redis Properties
+Redisの自動設定にはSpring Dataがクラスパスに存在する必要があるため、Redisの設定プロパティはspring.redis.からspring.data.redis.に移動しました。
+
 ### Flyway
+Spring Boot 3.0では、デフォルトでFlyway 9.0を使用します。これがあなたのアプリケーションにどのような影響を与えるかについては、Flywayの[リリースノート](https://flywaydb.org/documentation/learnmore/releaseNotes#9.0.0)と[ブログポスト](https://flywaydb.org/blog/version-9-is-coming-what-developers-need-to-know)を参照してください。
+
+FlywayConfigurationCustomizerビーンズは、CallbackおよびJavaMigrationビーンズが構成に追加された後に、FluentConfigurationをカスタマイズするために呼ばれるようになりました。Callback および JavaMigration Bean を定義し、カスタマイザーを使用してコールバックおよび Java マイグレーションを追加するアプリケーションは、意図したコールバックおよび Java マイグレーションが使用されるように更新する必要がある場合があります。
+
 ### Liquibase
+Spring Boot 3.0 は、デフォルトで Liquibase 4.17.x を使用しています。[4.17.xではいくつか問題が報告されている](https://github.com/spring-projects/spring-boot/issues/35010)ので、もし、あなたのアプリケーションが影響を受けたら、アプリケーションのニーズに合わせて Liquibase のバージョンをオーバーライドすることを検討してください。
+
 ### Hibernate 6.1
+Spring Boot 3.0では、デフォルトでHibernate 6.1が使用されます。これがアプリケーションにどのような影響を与えるかについては、Hibernate [6.0](https://docs.jboss.org/hibernate/orm/6.0/migration-guide/migration-guide.html)および[6.1](https://docs.jboss.org/hibernate/orm/6.1/migration-guide/migration-guide.html)移行ガイドを参照してください。
+
+依存関係管理と spring-boot-starter-data-jpa starter が更新され、Hibernate の依存関係に新しい org.hibernate.orm グループ ID が使用されるようになりました。
+
+Spring.jpa.hibernate.use-new-id-generator-mappings 設定プロパティは、Hibernate が古い ID ジェネレーターマッピングへの切り替えをサポートしなくなったため、削除されました。
+
 ### Embedded MongoDB
+Flapdoodleの埋め込みMongoDBの自動設定と依存関係管理は削除されました。テストに埋め込みMongoDBを使用する場合は、[Flapdoodleプロジェクト](https://github.com/flapdoodle-oss/de.flapdoodle.embed.mongo.spring)が提供する自動設定ライブラリを使用するか、埋め込みMongoDBの代わりに[Testcontainersプロジェクト](https://www.testcontainers.org/)を使用するようにテストを修正します。
+
 ### R2DBC 1.0
+Spring Boot 3.0では、デフォルトでR2DBC 1.0を使用しています。1.0のリリースにより、R2DBCは部品表（bom）を発行しなくなり、Spring Bootの依存関係管理に影響を与えました。r2dbc-bom.versionを使用してR2DBCのバージョンをオーバーライドすることはできなくなりました。その代わりに、個別にバージョン管理されたモジュールのためのいくつかの新しいプロパティが利用できるようになりました：
+- oracle-r2dbc.version (com.oracle.database.r2dbc:oracle-r2dbc)
+- r2dbc-h2.version (io.r2dc:r2dbc-h2)
+- r2dbc-pool.version (io.r2dc:r2dbc-pool)
+- r2dbc-postgres.version (io.r2dc:r2dbc-postgres)
+- r2dbc-proxy.version (io.r2dc:r2dbc-proxy)
+- r2dbc-spi.version (io.r2dc:r2dbc-spi)
+
 ### Elasticsearch Clients and Templates
+Elasticsearch のハイレベルな REST クライアントのサポートが削除されました。その代わりに、Elasticsearch の新しい Java クライアントの自動設定が導入されました。同様に、高レベルのRESTクライアントの上に構築されたSpring Data Elasticsearchテンプレートのサポートが削除されました。その代わりに、新しいJavaクライアントの上に構築された新しいテンプレートのための自動設定が導入されました。詳細は[リファレンスドキュメントのElasticsearchのセクション](https://docs.spring.io/spring-boot/docs/3.0.x/reference/html/data.html#data.nosql.elasticsearch)を参照してください。
+
+ReactiveElasticsearchRestClientAutoConfiguration は ReactiveElasticsearchClientAutoConfiguration に名称変更され、 org.springframework.boot.autoconfigure.data.elasticsearch から org.springframework.boot.autoconfigure.elasticsearch に移行されました。自動設定の除外や順序は、それに応じて更新する必要があります。
+
 ### MySQL JDBC Driver
+MySQL JDBCドライバの座標が、mysql:mysql-connector-java から com.mysql:mysql-connector-j に変更されました。MySQL JDBCドライバを使用している場合は、Spring Boot 3.0にアップグレードする際に、その座標を適宜更新してください。
+
 ## Spring Security Changes
+Spring Boot 3.0は[Spring Security 6.0](https://docs.spring.io/spring-security/reference/migration/index.html)にアップグレードしました。以下の項目に加え、Spring Security 6.0移行ガイドをご確認ください。
+
 ### ReactiveUserDetailsService
+AuthenticationManagerResolver が存在する場合、ReactiveUserDetailsService は自動設定されなくなりました。AuthenticationManagerResolver が存在するにもかかわらず、アプリケーションが ReactiveUserDetailService に依存している場合、そのニーズを満たす独自の ReactiveUserDetailsService ビーンを定義します。
+
 ### SAML2 Relying Party Configuration
+spring.security.saml2.relyingparty.registration.{id}.identity-provider のプロパティのサポートが削除されました。代わりに spring.security.saml2.relyingparty.registration.{id}.asserting-party にある新しいプロパティを使用します。
+
 ## Spring Batch Changes
+Spring Boot 3.0はSpring Batch 5.0にアップグレードしました。以下の項目に加え、Spring Batch 5.0移行ガイドをご確認ください。
+
 ### @EnableBatchProcessing is now discouraged
+以前は@EnableBatchProcessingを使用することで、Spring BootのSpring Batchの自動設定を有効にすることができました。これはもはや必須ではなく、Bootの自動設定を使用したいアプリケーションからは削除する必要があります。EnableBatchProcessingでアノテーションされたBeanや、BatchのDefaultBatchConfigurationを拡張したBeanを定義することで、自動設定を停止するように指示できるようになり、アプリケーションがBatchの設定方法を完全に制御できるようになりました。
+
 ### Multiple Batch Jobs
+複数のバッチジョブを実行することはサポートされなくなりました。自動設定によって単一のジョブが検出された場合、そのジョブがスタートアップ時に実行されます。コンテキストで複数のジョブが検出された場合、起動時に実行するジョブ名を spring.batch.job.name プロパティを使用してユーザーが指定する必要があります。
+
 ## Spring Session Changes
+以下は、Spring Sessionをご利用の方に関連する項目です。
+
 ### Spring Session Store Type
+Spring セッションのストアタイプを spring.session.store-type で明示的に設定することは、サポートされなくなりました。クラスパス上で複数のセッションストアリポジトリの実装が検出された場合、どのSessionRepositoryを自動設定すべきかを決定するために、[固定された順序](https://docs.spring.io/spring-boot/docs/3.0.x/reference/html/web.html#web.spring-session)が使用されます。Spring Bootで定義された順序がニーズに合わない場合は、独自のSessionRepository Beanを定義して、自動設定を後退させることができます。
 
 ## Gradle Changes
-### Simplified Main Class Name Resolution With Gradle
-### Configuring Gradle Tasks
-### Excluding Properties From 'build-info.properties' With Gradle
+Spring BootプロジェクトをGradleでビルドするユーザーは、以下のセクションを確認してください。
 
+### Simplified Main Class Name Resolution With Gradle
+Gradleでアプリケーションをビルドするとき、アプリケーションのメインクラスの名前の解決が簡素化され、一貫したものになりました。 bootJar、bootRun、bootWarはすべて、メインソースセットの出力でそれを探すことによってメインクラス名の名前を解決するようになりました。これにより、タスクがデフォルトで同じメインクラス名を使用していないかもしれないという小さなリスクが取り除かれました。メインクラスがメインソースセットの出力以外の場所から解決されることに依存していた場合は、Gradleの設定を更新して、springBoot DSLのmainClassプロパティを使用してメインクラス名を構成するようにしてください：
+```gradle
+springBoot {
+    mainClass = "com.example.Application"
+}
+```
+また、resolveMainClassName タスクの classpath プロパティを設定して、メイン・ソース・セットの出力ディレクトリー以外の場所を検索することも可能です。
+
+### Configuring Gradle Tasks
+Spring BootのGradleタスクは、その設定にGradleのPropertyサポートを一貫して使用するように更新されました。その結果、プロパティの値を参照する方法を変更する必要がある場合があります。例えば、bootBuildImageのimageNameプロパティの値は、imageName.get()を使用してアクセスできるようになりました。さらに、Kotlin DSLを使用している場合、プロパティを設定する方法を変更する必要があるかもしれません。例えば、Spring Boot 2.xでは、bootJarタスクのレイヤリングを以下のように無効化することができます：
+```gradle
+tasks.named<BootJar>("bootJar") {
+	layered {
+		isEnabled = false
+	}
+}
+```
+3.0では、以下を使用する必要があります：
+```gradle
+tasks.named<BootJar>("bootJar") {
+	layered {
+		enabled.set(false)
+	}
+}
+```
+詳しい例については、[Gradleプラグインのリファレンスドキュメント](https://docs.spring.io/spring-boot/docs/3.0.x/gradle-plugin/reference/htmlsingle/)を参照してください。
+
+### Excluding Properties From 'build-info.properties' With Gradle
+先に説明したGradleタスクの設定変更の一環として、生成されたbuild-info.propertiesファイルからプロパティを除外する仕組みも変更されました。以前は、プロパティをnullに設定することで除外することができました。これはもはや機能せず、名前ベースのメカニズムに置き換えられています：
+```gradle
+springBoot {
+	buildInfo {
+		excludes = ['time']
+	}
+}
+```
+Gradle Kotlin DSLでは以下の通りです：
+```kotlin
+springBoot {
+	buildInfo {
+		excludes.set(setOf("time"))
+	}
+}
+```
 ## Maven Changes
+MavenでSpring Bootプロジェクトを構築するユーザーは、以下のセクションを確認してください。
+
 ### Running Your Application in the Maven Process
+Spring Boot 2.7で非推奨とされていたspring-boot:runとspring-boot:startのfork属性が削除されました。
+
 ### Git Commit ID Maven Plugin
+Git Commit ID Maven Pluginがバージョン5に更新され、座標が変更になりました。以前の座標は pl.project13.maven:git-commit-id-plugin でした。新しい座標は io.github.git-commit-id:git-commit-id-maven-plugin です。pom.xmlファイル内の<plugin>宣言もそれに合わせて更新する必要があります。
 
 ## Dependency Management Changes
+Spring Bootで管理される依存関係において、以下の変更がありました。
+
 ### JSON-B
+Apache Johnzonの依存関係管理は、Eclipse Yassonを優先して削除されました。Jakarta EE 10互換のApache JohnzonはSpring Boot 3で使用できますが、依存性宣言でバージョンを指定する必要が出てきました。
+
 ### ANTLR 2
+ANTLR 2の依存関係管理（antlr:antlr）は、不要になったため削除しました。アプリケーションでANTLR 2を使用する場合は、ニーズに合ったバージョンを指定してください。
+
 ### RxJava
+RxJava 1.x および 2.x の依存性管理が削除され、代わりに RxJava 3 の依存性管理が追加されています。
+
 ### Hazelcast Hibernate Removed
+Spring BootはHazelcast Hibernateに依存しないので、そのバージョンについて意見する必要はありません。そのため、Hazelcast Hibernateの依存性管理は削除されました。Hazelcast Hibernateの使用を継続したい場合は、ニーズに合ったバージョンを指定してください。また、代わりに org.hibernate.orm:hibernate-jcache を使用することを検討してください。
+
 ### Ehcache3
+Jakarta EE 9以降に対応するため、Ehcacheのehcacheモジュールとehcache-transactionsモジュールの依存関係管理をjakarta classifierで宣言するようになりました。pom.xmlやbuild.gradleスクリプトの依存性宣言も同様に更新する必要があります。
+
 ### Other Removals
+Spring Boot 3.0では、以下の依存関係のサポートが削除されました：
+- Apache ActiveMQ
+- Atomikos
+- EhCache 2
+- Hazelcast 3
+
+Apache Solrのサポートは、そのJettyベースのクライアントであるHttp2SolrClientがJetty 11と互換性がないため、削除されました。
