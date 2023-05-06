@@ -201,7 +201,7 @@ TomcatやJetty（このような設定をサポートする唯一の2つのサ�
 JettyはまだServlet 6.0をサポートしていません。Spring Boot 3.0でJettyを使用するには、Servlet APIを5.0にダウングレードする必要があります。そのためには、`jakarta-servlet.version`プロパティを使用します。
 
 ### Apache HttpClient in RestTemplate
-Apache HttpClientのサポートは@Spring Framework 6.0で削除](https://github.com/spring-projects/spring-framework/issues/28925)され、すぐに`org.apache.httpcomponents.client5:httpclient5`（注意：この依存関係は異なるgroupIdを持っています）に置き換えられました。HTTPクライアントの動作に問題がある場合、`RestTemplate`がJDKクライアントにフォールバックしている可能性があります。 `org.apache.httpcomponents:httpclient` は他の依存関係によって推移的にもたらされることがあるので、アプリケーションは宣言せずにこの依存関係に依存しているかもしれません。
+Apache HttpClientのサポートは[Spring Framework 6.0で削除](https://github.com/spring-projects/spring-framework/issues/28925)され、すぐに`org.apache.httpcomponents.client5:httpclient5`（注意：この依存関係は異なるgroupIdを持っています）に置き換えられました。HTTPクライアントの動作に問題がある場合、`RestTemplate`がJDKクライアントにフォールバックしている可能性があります。 `org.apache.httpcomponents:httpclient` は他の依存関係によって推移的にもたらされることがあるので、アプリケーションは宣言せずにこの依存関係に依存しているかもしれません。
 
 ## Actuator Changes
 Spring Bootのactuatorモジュールを使用している方は、以下のアップデートに注意してください。
